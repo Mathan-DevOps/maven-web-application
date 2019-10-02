@@ -1,0 +1,51 @@
+node 
+{
+   
+    echo "GitHub BranhName ${env.BRANCH_NAME}"
+    echo "Jenkins Job Number ${env.BUILD_NUMBER}"
+    echo "Jenkins Node Name ${env.NODE_NAME}"
+  
+    echo "Jenkins Home ${env.JENKINS_HOME}"
+    echo "Jenkins URL ${env.JENKINS_URL}"
+    echo "JOB Name ${env.JOB_NAME}"
+    
+    properties([
+    buildDiscarder(logRotator(numToKeepStr: '3')),
+    pipelineTriggers([
+        pollSCM('* * * * *')
+    ])
+  ])
+    
+    def mavenHome=tool name:"maven3.6.2",type:"maven"
+    
+    stage('downloadsourcecode')
+    {
+        git branch: 'development', credentialsId: 'ed9c73b9-4304-4f25-a60c-f6cc8c2b62eb', url: 'https://github.com/Mathan-DevOps/maven-web-application.git'
+    }
+    stage('buildartifacts')
+    {
+        sh "${mavenHome}/bin/mvn clean package"
+     }
+    stage('excecutesonar')
+    {
+        sh "${mavenHome}/bin/mvn sonar:sonar"
+    }
+    stage('uploadtonexus')
+    {
+        sh "${mavenHome}/bin/mvn deploy"
+    }
+    stage('deploytoTomcat')
+    {
+      
+        sshagent(['7be60e2d-e3a1-45b7-a706-74357423dc63']) {
+        sh "scp -o StrictHostKeyChecking=no target/maven-web-application.war ec2-user@13.126.50.28:/opt/apache-tomcat-9.0.24/webapps/maven-web-application.war"
+      
+        }
+    }
+    stage('emailnotification')
+    {
+    emailext body: '!!!!!!Sucess!!!!', subject: 'Deploy to tomcat success', to: 'mathan.devops2019@gmail.com'    
+        
+    }
+    
+}
